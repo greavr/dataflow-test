@@ -1,3 +1,5 @@
+// Added in more lineral dependencies, firewall depends on VPC, VPC depends on enabled apis. Terraform is great at working out the order it needs
+
 # Enable API's
 resource "google_project_service" "enable-services" {
   for_each = toset(var.services_to_enable)
@@ -7,25 +9,14 @@ resource "google_project_service" "enable-services" {
   disable_on_destroy = false
 }
 
-# Providing permisison to compute service 
-resource "google_project_iam_member" "iam_roles" {
- count   = length(var.gcp_iam_list)
- project = var.project_id
- role = var.gcp_iam_list[count.index]
- member  = "serviceAccount:${var.project_number}-compute@developer.gserviceaccount.com"
- depends_on = [
-      google_project_service.enable-services
-  ]
-}
-
 # VPC
 resource "google_compute_network" "demo-vpc" {
  name = var.vpc-name    
  project = var.project_id          
- auto_create_subnetworks = true
+ auto_create_subnetworks = false
+
  depends_on = [
-   google_project_service.enable-services,
-   google_project_iam_member.iam_roles
+   google_project_service.enable-services
  ]
 }
  
@@ -46,7 +37,14 @@ resource "google_compute_firewall" "default" {
  source_tags = ["web"]
  
  depends_on = [
-   google_compute_network.demo-vpc,
-   google_project_service.enable-services
+   google_compute_network.demo-vpc
  ]
+}
+
+# Create region specific subnet
+resource "google_compute_subnetwork" "subnet" {
+  name = "${var.region}"
+  ip_cidr_range =  "${var.cidr}"       
+  region        = "${var.region}"
+  network       = google_compute_network.demo-vpc.name
 }

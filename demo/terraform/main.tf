@@ -1,47 +1,45 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Main modules
 # ----------------------------------------------------------------------------------------------------------------------
-module "demo-vpc" {
-  source                     = "./terraform-modules/vpc"
-  project_id = var.project_id
-  project_number = data.google_project.project.number
+module "vpc" {
+    source      = "./modules/vpc"
+    project_id  = var.project_id
+    region      = var.region
+    
 } 
 
-# Enable API's
-resource "google_project_service" "enable-services" {
-  for_each = toset(var.services_to_enable)
-
-  project = var.project_id
-  service = each.value
-  disable_on_destroy = false
+module "gcs" {
+  source = "./modules/gcs"
+  project_id = var.project_id
+  region = var.region
+  bucket_name = var.gcs_bucket_name
 }
 
-resource "time_sleep" "wait_X_seconds" {
-    depends_on = [
-        google_project_service.enable-services
-        ]
+module "kms" {
+  source = "./modules/kms"
+  project_id = var.project_id
+  kms-name = var.kms_key_name
 
-    create_duration = "60s"
 }
 
-resource "google_dataflow_job" "dataflow_job" {
-  project               = var.project_id
+module "dataflow" {
+  source                = "./modules/dataflow"
+  project_id            = var.project_id
+  
   region                = var.region
   zone                  = var.zone
-  name                  = var.name
-  on_delete             = var.on_delete
-  max_workers           = var.max_workers
-  template_gcs_path     = var.template_gcs_path
-  temp_gcs_location     = "gs://${var.temp_gcs_location}/tmp_dir"
-  parameters            = var.parameters
-  service_account_email = var.service_account_email
-  network               = var.network_self_link
-  subnetwork            = var.subnetwork_self_link
-  machine_type          = var.machine_type
-  ip_configuration      = var.ip_configuration
-  kms_key_name          = var.kms_key_name
+
+  network               = module.vpc.vpc.id
+  subnet                = module.vpc.subnets.id
+
+  kms_key_name          = module.kms.kms_key.name
+  temp_gcs_location     = module.gcs.bucket_name.name
+
+
 
   depends_on = [
-    time_sleep.wait_X_seconds
+    module.vpc,
+    module.gcs,
+    module.kms
   ]
 }

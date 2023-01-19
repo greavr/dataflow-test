@@ -10,13 +10,13 @@ resource "google_project_service" "enable-services" {
 # ----------------------------------------------------------------------------------------------------------------------
 # Configure GCS Buckets
 # ----------------------------------------------------------------------------------------------------------------------
-resource "google_storage_bucket" "ingest-bucket" {
-  name          = var.bucket_name
+resource "google_storage_bucket" "dataflow_bucket" {
+  name                        = "${var.project_id}-${var.bucket_name}"
   uniform_bucket_level_access = true
-  location      = var.region
-  storage_class = "REGIONAL"
-  project       = var.project_id
-  force_destroy = var.force_destroy
+  location                    = var.region
+  storage_class               = "REGIONAL"
+  project                     = var.project_id
+  force_destroy               = var.force_destroy
 
   depends_on = [
     google_project_service.enable-services
